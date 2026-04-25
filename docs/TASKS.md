@@ -4,7 +4,7 @@ Use this as a backlog; verify behavior in `script.js` before implementing (some 
 
 ## Expense list UI
 
-- Make per-person split details on expense cards **expandable/collapsible** (split breakdown already exists inline). Default collapsed; expanded shows per-person amounts. See `docs/FEATURES.md`, `docs/UI_UX_GUIDE.md`.
+- Current expense cards already include a collapsed **Show split details** section. Future work can improve the summary copy, animation, or default-open behavior if needed. See `docs/FEATURES.md`, `docs/UI_UX_GUIDE.md`.
 
 ## UX — Add Expense modal
 
@@ -20,12 +20,12 @@ Use this as a backlog; verify behavior in `script.js` before implementing (some 
 
 ## Keyboard interactions
 
-- **Member name:** Enter already submits add member (`onMemberNameInputKeydown`) — keep when changing member UI.
-- Extend: Enter in trip name field to start trip (if valid); Enter in modal to submit expense when form valid; focus trap + Escape documented in AGENT/CONTEXT.
+- **Member name:** Enter already submits add member (`Member.onNameKeydown`) — keep when changing member UI.
+- Extend: Enter in trip name field to start trip (if valid); focus trap + Escape behavior for the modal.
 
 ## Balances UI
 
-- Current presentation uses **balance cards** (not a literal data table in the main UI); still can feel dense — explore typography, spacing, and visual grouping “less table-like.”
+- Current presentation uses member chips plus a unified settlement panel with optional balance details; still can feel dense — explore typography, spacing, and visual grouping.
 - Optional: sort by net amount or group “owed” vs “owed to you.”
 
 ## Mobile responsiveness
@@ -35,7 +35,6 @@ Use this as a backlog; verify behavior in `script.js` before implementing (some 
 
 ## Possible future features (not in original UI)
 
-- Delete individual expenses.
 - Multiple trips with a selector (would require state schema + UI redesign — **large change;** align with owner first).
 - Currency selector (display only; math stays numeric).
 
@@ -44,5 +43,7 @@ Use this as a backlog; verify behavior in `script.js` before implementing (some 
 - **localStorage** persistence for trip state.
 - **Print / Save as PDF** via browser print and `#print-report`.
 - **Edit expense** (via Edit button on expense cards).
+- **Delete expense** (via Delete button on expense cards).
+- **Collapsible split details** on expense cards.
 - **Simplify debt** toggle (switches simplified vs per-expense reimbursements) and persisted preference.
 - **Enter** on member name input adds member.

@@ -4,7 +4,8 @@
 
 - **What it is:** A browser-only “trip” expense splitter: one trip name, members, shared expenses with multiple split modes, per-member balances, and suggested settlement transfers.
 - **Stack:** Single-page app in three files: `index.html`, `style.css`, `script.js`. No build step, no npm.
-- **Persistence:** Trip state is saved to `localStorage` under key `tripExpenseSplitterState` (see `saveState` / `loadState` in `script.js`).
+- **Persistence:** Trip state is saved to `localStorage` under key `tripExpenseSplitterState` (see `Trip.save` / `Trip.load` in `script.js`). The **Simplify debt** toggle is saved separately under `tripExpenseSplitterSimplifyDebt`.
+- **Organization:** `script.js` is one file, organized by namespaces: `Trip`, `Member`, `Expense`, `Expense.split`, `Expense.modal`, `Settlement`, and `Util`. These are also exposed on `window` for debugging.
 
 ## Tech constraints (non-negotiable)
 
@@ -21,7 +22,7 @@
 ## How to approach changes
 
 - **Small, focused edits:** Prefer touching one concern at a time (e.g. only modal CSS, or only one render function).
-- **Read before write:** Match existing patterns — `qs` / `qsa`, `renderAll()` as the main refresh hub, `saveState()` after successful mutations.
+- **Read before write:** Match existing patterns — `Util.qs` / `Util.qsa`, `Trip.renderAll()` as the main refresh hub, `Trip.save()` after successful mutations.
 - **Single source of truth:** State lives in the `state` object; avoid parallel caches of the same data.
 - **After logic changes:** Ensure `renderAll()` (or the minimal render subset) still runs where needed and persistence still serializes all required fields.
 
@@ -35,10 +36,12 @@
 
 | Topic | Primary location |
 |--------|------------------|
-| State shape & persistence | `script.js` — `state`, `saveState`, `loadState` |
-| Split math | `script.js` — `computeOwedForExpense` |
+| State shape & persistence | `script.js` — `state`, `Trip.save`, `Trip.load`, `Trip.resetState` |
+| Split math | `script.js` — `Expense.split.computeOwedForExpense` |
 | Validation | `script.js` — `validateExpenseDraft`, `validateMemberName`, etc. |
 | UI structure | `index.html` |
-| Full refresh | `script.js` — `renderAll` |
+| Full refresh | `script.js` — `Trip.renderAll` / internal `renderAll` |
+| Settlement preference | `script.js` — `Settlement.loadSimplifyDebtPreference`, `Settlement.saveSimplifyDebtPreference` |
+| Settlement math | `script.js` — `Settlement.computeBalances`, `Settlement.simplify`, `Settlement.computeDirectDebts` |
 
 See also: `docs/CONTEXT.md`, `docs/RULES.md`, `docs/FEATURES.md`, `docs/UI_UX_GUIDE.md`, `docs/TASKS.md`, `docs/PROMPTS.md`.

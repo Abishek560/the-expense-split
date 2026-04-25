@@ -6,7 +6,7 @@ Copy/adapt these when starting a new agent session. Keep scope small; cite `docs
 
 ## Per-person share on expense cards
 
-> Add per-person share breakdown for each expense card: expandable/collapsible rows, summary by default, expanded shows each participant’s owed share for that expense (equal, shares, percentage, custom). Reuse existing split math (`computeOwedForExpense`); do not duplicate allocation logic. Follow `docs/FEATURES.md` and `docs/UI_UX_GUIDE.md`. Vanilla JS only; minimal diff.
+> Refine the existing per-person share breakdown on each expense card: keep the current expandable/collapsible rows, improve summary copy or visual polish, and ensure expanded content shows each participant’s owed share for that expense (equal, shares, percentage, custom). Reuse existing split math (`Expense.split.computeOwedForExpense`); do not duplicate allocation logic. Follow `docs/FEATURES.md` and `docs/UI_UX_GUIDE.md`. Vanilla JS only; minimal diff.
 
 ---
 
@@ -18,7 +18,7 @@ Copy/adapt these when starting a new agent session. Keep scope small; cite `docs
 
 ## Split UX improvement
 
-> Improve the Add Expense flow for split methods (shares, percentage, custom) in vanilla JS. Keep `computeOwedForExpense` and `validateExpenseDraft` rules identical unless you find a bug — document any math change. Prefer minimal changes: possibly `renderSplitFields`, related HTML in the modal, and CSS. Do not duplicate split logic outside existing functions.
+> Improve the Add Expense flow for split methods (shares, percentage, custom) in vanilla JS. Keep `Expense.split.computeOwedForExpense` and `validateExpenseDraft` rules identical unless you find a bug — document any math change. Prefer minimal changes: possibly `Expense.split.renderSplitFields`, related HTML in the modal, and CSS. Do not duplicate split logic outside existing functions.
 
 ---
 
@@ -30,7 +30,7 @@ Copy/adapt these when starting a new agent session. Keep scope small; cite `docs
 
 ## localStorage persistence (enhance / fix)
 
-> The app already persists to `localStorage` under `tripExpenseSplitterState`. [Choose one:] (a) Fix a specific bug: [describe]. (b) Add migration/version field to the snapshot for future schema changes without breaking existing users. (c) Add a visible “last saved” or export JSON backup. Keep vanilla JS; extend `saveState`/`loadState` carefully with backward compatibility.
+> The app already persists trip data to `localStorage` under `tripExpenseSplitterState` and the Simplify debt preference under `tripExpenseSplitterSimplifyDebt`. [Choose one:] (a) Fix a specific bug: [describe]. (b) Add migration/version field to the snapshot for future schema changes without breaking existing users. (c) Add a visible “last saved” or export JSON backup. Keep vanilla JS; extend `Trip.save` / `Trip.load` carefully with backward compatibility.
 
 ---
 

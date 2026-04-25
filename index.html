@@ -46,18 +46,26 @@
           >
             Export PDF
           </button>
-          <button type="button" id="btn-open-expense-modal" class="btn btn-primary btn-add-expense" disabled>
-            Add expense
-          </button>
         </div>
       </div>
     </header>
 
     <section class="members-section post-start-only" aria-label="Trip members">
       <div class="members-section__row">
-        <span class="members-section__label">Members</span>
+        <span class="members-section__label">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          Members
+        </span>
         <div id="member-chips" class="member-chips" aria-live="polite"></div>
-        <p id="member-list-empty" class="members-empty-hint">No members yet.</p>
+        <p id="member-list-empty" class="members-empty-hint">
+          <strong>No members yet</strong>
+          <span>Add people to start splitting</span>
+        </p>
         <button type="button" id="btn-toggle-member-add" class="btn btn-outline-member" aria-expanded="false" aria-controls="member-add-inline">
           + Add member
         </button>
@@ -71,8 +79,23 @@
 
     <main class="main-grid">
       <section class="panel panel-list panel-elevated panel-expenses-main" aria-labelledby="list-heading">
-        <div class="panel-head panel-head--tight">
-          <h2 id="list-heading" class="panel-title">Expenses</h2>
+        <div class="panel-head panel-head--tight panel-head--split panel-head--expenses">
+          <h2 id="list-heading" class="panel-title">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"></path>
+              <path d="M16 8h-6"></path>
+              <path d="M16 12h-6"></path>
+              <path d="M16 16h-6"></path>
+            </svg>
+            Expenses
+          </h2>
+          <button type="button" id="btn-open-expense-modal" class="btn btn-primary btn-add-expense btn-with-icon" disabled>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h14"></path>
+              <path d="M12 5v14"></path>
+            </svg>
+            Add expense
+          </button>
         </div>
         <div id="expense-list-container" class="panel-body panel-body--expenses"></div>
       </section>
@@ -83,14 +106,29 @@
           aria-labelledby="settlement-heading"
         >
           <div class="panel-head panel-head--tight panel-head--split">
-            <h2 id="settlement-heading" class="panel-title">Settlement</h2>
+            <h2 id="settlement-heading" class="panel-title">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7 7h11l-4-4"></path>
+                <path d="M17 17H6l4 4"></path>
+                <path d="M18 7 6 19"></path>
+              </svg>
+              Settlement
+            </h2>
             <label class="sidebar-opt">
               <input type="checkbox" id="simplify-debt" checked />
-              <span>Simplify debt</span>
+              <span>
+                <span class="sidebar-opt__label">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="m13 2-9 13h8l-1 7 9-13h-8Z"></path>
+                  </svg>
+                  Simplify debt
+                </span>
+                <small>Minimizes the number of payments</small>
+              </span>
             </label>
           </div>
           <div class="settlement-unified">
-            <p id="hint-settle" class="settlement-unified__hint">Add expenses to see how payments route to each person.</p>
+            <p id="hint-settle" class="settlement-unified__hint"></p>
             <div id="balances-container" class="settlement-unified__balances" aria-label="Member settlement"></div>
           </div>
         </section>
@@ -120,7 +158,13 @@
             </div>
             <div class="field-row">
               <label for="expense-amount">Amount</label>
-              <input type="number" id="expense-amount" min="0" step="0.01" placeholder="0.00" disabled />
+              <input
+                type="text"
+                inputmode="decimal"
+                id="expense-amount"
+                placeholder="0.00"
+                disabled
+              />
             </div>
             <div class="field-row">
               <label for="expense-payer">Paid by</label>
