@@ -14,15 +14,21 @@ const state = {
 /** When non-null, expense modal is editing this expense id (add flow uses null). */
 let editingExpenseId = null;
 
+/** Add-expense modal only: `"manual"` | `"ai"`. Edit flow ignores this and always shows manual fields. */
+let expenseEntryMode = "ai";
+
 const STORAGE_KEY = "tripExpenseSplitterState";
 const STORAGE_KEY_SIMPLIFY_DEBT = "tripExpenseSplitterSimplifyDebt";
+
+/** POST `{ input, members }` — worker holds Groq API key. */
+const EXPENSE_AI_WORKER_URL = "https://dawn-sun-9497.abishek-d.workers.dev/";
 
 // --- App root + domain namespaces (implementations live here) ---
 const App = {};
 
 App.Trip = {};
 App.Member = {};
-App.Expense = { modal: {}, split: {} };
+App.Expense = { modal: {}, split: {}, ai: {} };
 App.Settlement = {};
 
 // --- Util (standalone helpers live here) ---
@@ -220,6 +226,14 @@ Util.generateId = function generateId() {
 Member.getName = function getName(memberId) {
   const m = state.members.find((x) => x.id === memberId);
   return m ? m.name : "?";
+};
+
+/** Case-insensitive match to current trip members (duplicate names are disallowed at add time). */
+Member.findIdByName = function findIdByName(name) {
+  const t = String(name ?? "").trim().toLowerCase();
+  if (!t) return null;
+  const m = state.members.find((x) => x.name.trim().toLowerCase() === t);
+  return m ? m.id : null;
 };
 
 Member.getInitials = function getInitials(name) {
@@ -747,6 +761,11 @@ Expense.split.onParticipantSelectAllChange = function onParticipantSelectAllChan
   Expense.split.renderSplitFields();
 };
 
+// Back-compat: current event wiring uses this shorter name.
+Expense.split.onSelectAllToggle = function onSelectAllToggle() {
+  return Expense.split.onParticipantSelectAllChange();
+};
+
 Expense.split.readSplitDetailsFromDom = function readSplitDetailsFromDom(method, participantIds) {
   const details = {};
   if (method === "equal") return details;
@@ -783,6 +802,166 @@ Expense.readDraftFromForm = function readDraftFromForm() {
   };
 };
 
+const EXPENSE_AI_SPLIT_METHODS = new Set(["equal", "shares", "percentage", "custom"]);
+
+Expense.ai.fetchParse = async function fetchParse(input) {
+  const members = state.members.map((m) => m.name);
+  const res = await fetch(EXPENSE_AI_WORKER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ input, members }),
+  });
+  const text = await res.text();
+  let body = {};
+  try {
+    body = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error("Invalid response from AI service.");
+  }
+  if (!res.ok) {
+    const err = body.error || body.message || res.statusText || "Request failed";
+    throw new Error(typeof err === "string" ? err : "Request failed");
+  }
+  if (body.error) {
+    throw new Error(String(body.error));
+  }
+  return body;
+};
+
+/**
+ * Maps worker JSON into the expense modal. Caller must have the modal open with members loaded.
+ * @returns {{ ok: true } | { ok: false, error: string }}
+ */
+Expense.ai.applyWorkerPayloadToForm = function applyWorkerPayloadToForm(parsed) {
+  const msg = Util.qs("#expense-message");
+  const title = String(parsed.title ?? "").trim();
+  if (!title) {
+    return { ok: false, error: "AI did not return a title." };
+  }
+  const amount = Number(parsed.amount);
+  if (!(amount > 0) || !Number.isFinite(amount)) {
+    return { ok: false, error: "AI did not return a valid amount." };
+  }
+
+  const payerId = Member.findIdByName(parsed.paidByName);
+  if (!payerId) {
+    return {
+      ok: false,
+      error: `Could not match payer "${String(parsed.paidByName ?? "").trim() || "(missing)"}" to a trip member.`,
+    };
+  }
+
+  const names = Array.isArray(parsed.participantNames) ? parsed.participantNames : [];
+  if (names.length === 0) {
+    return { ok: false, error: "AI did not return any participants." };
+  }
+
+  const participantIds = [];
+  for (const n of names) {
+    const id = Member.findIdByName(n);
+    if (!id) {
+      return {
+        ok: false,
+        error: `Could not match participant "${String(n).trim()}" to a trip member.`,
+      };
+    }
+    participantIds.push(id);
+  }
+  const seen = new Set();
+  const uniqueParticipantIds = participantIds.filter((id) => {
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+
+  let splitMethod = String(parsed.splitMethod || "equal").trim();
+  if (!EXPENSE_AI_SPLIT_METHODS.has(splitMethod)) {
+    splitMethod = "equal";
+  }
+
+  const byName = parsed.splitDetailsByName;
+  const prefill =
+    splitMethod !== "equal" && byName && typeof byName === "object"
+      ? (() => {
+          const out = {};
+          for (const id of uniqueParticipantIds) {
+            const memberName = Member.getName(id);
+            const key = Object.keys(byName).find(
+              (k) => String(k).trim().toLowerCase() === memberName.trim().toLowerCase(),
+            );
+            if (key == null) continue;
+            const v = Number(byName[key]);
+            if (Number.isFinite(v)) {
+              out[id] = v;
+            }
+          }
+          return out;
+        })()
+      : null;
+
+  Expense.split.renderPayerAndParticipants({
+    selectParticipantIds: uniqueParticipantIds,
+    payerId,
+  });
+
+  const titleEl = Util.qs("#expense-title");
+  const amtEl = Util.qs("#expense-amount");
+  const methodEl = Util.qs("#split-method");
+  if (titleEl) titleEl.value = title;
+  if (amtEl) amtEl.value = Util.formatMoney(amount);
+  if (methodEl) methodEl.value = splitMethod;
+
+  syncExpenseFormUi();
+  Expense.split.renderSplitFields(prefill && Object.keys(prefill).length > 0 ? prefill : null);
+
+  Util.setMessage(msg, "Review the form, then save.");
+  return { ok: true };
+};
+
+Expense.ai.onParseClick = async function onParseClick() {
+  const msg = Util.qs("#expense-message");
+  const inputEl = Util.qs("#expense-ai-input");
+  const btn = Util.qs("#btn-expense-ai-parse");
+  if (!Expense.modal.isOpen() || !inputEl || !btn || btn.disabled) return;
+
+  const raw = String(inputEl.value || "").trim();
+  Util.setMessage(msg, "");
+  if (!raw) {
+    Util.setMessage(msg, "Enter a short description of the expense.");
+    return;
+  }
+  if (!state.started || state.members.length === 0) {
+    Util.setMessage(msg, "Add members before using AI fill.");
+    return;
+  }
+
+  const prevLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Parsing…";
+
+  try {
+    const parsed = await Expense.ai.fetchParse(raw);
+    const applied = Expense.ai.applyWorkerPayloadToForm(parsed);
+    if (!applied.ok) {
+      Util.setMessage(msg, applied.error);
+      return;
+    }
+    inputEl.value = "";
+    Expense.modal.setEntryMode("manual");
+    const titleInput = Util.qs("#expense-title");
+    if (titleInput && !titleInput.disabled) {
+      titleInput.focus();
+    }
+  } catch (e) {
+    const m = e && e.message ? String(e.message) : "Could not reach AI service.";
+    Util.setMessage(msg, m);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = prevLabel;
+    syncExpenseFormUi();
+  }
+};
+
 Expense.split.methodLabel = function methodLabel(method) {
   if (method === "equal") return "Equal";
   if (method === "shares") return "By shares";
@@ -803,16 +982,44 @@ function syncExpenseFormUi() {
   const expenseLocked = !(state.started && state.members.length > 0);
   const modalOpen = Expense.modal.isOpen();
   const formDisabled = expenseLocked || !modalOpen;
+  const isEditing = editingExpenseId != null;
+  const isAddAi = modalOpen && !isEditing && expenseEntryMode === "ai";
+  const manualFieldsDisabled = formDisabled || isAddAi;
+  const aiFieldsDisabled = formDisabled || isEditing || (modalOpen && !isEditing && expenseEntryMode !== "ai");
 
-  ["#expense-title", "#expense-amount", "#expense-payer", "#split-method", "#btn-add-expense"].forEach((sel) => {
+  ["#expense-title", "#expense-amount", "#expense-payer", "#split-method"].forEach((sel) => {
     const el = Util.qs(sel);
-    if (el) el.disabled = formDisabled;
+    if (el) el.disabled = manualFieldsDisabled;
   });
   Util.qsa("#participant-checkboxes input[type=checkbox]").forEach((el) => {
-    el.disabled = formDisabled;
+    el.disabled = manualFieldsDisabled;
   });
   const selectAll = Util.qs("#participant-select-all");
-  if (selectAll) selectAll.disabled = formDisabled;
+  if (selectAll) selectAll.disabled = manualFieldsDisabled;
+
+  const saveBtn = Util.qs("#btn-add-expense");
+  if (saveBtn) saveBtn.disabled = manualFieldsDisabled;
+
+  const aiInput = Util.qs("#expense-ai-input");
+  const aiBtn = Util.qs("#btn-expense-ai-parse");
+  if (aiInput) aiInput.disabled = aiFieldsDisabled;
+  if (aiBtn) aiBtn.disabled = aiFieldsDisabled;
+
+  const modeSwitch = Util.qs("#expense-entry-mode-switch");
+  const tabManual = Util.qs("#tab-expense-entry-manual");
+  const tabAi = Util.qs("#tab-expense-entry-ai");
+  if (modeSwitch) {
+    if (isEditing) {
+      modeSwitch.hidden = true;
+      modeSwitch.setAttribute("aria-hidden", "true");
+    } else {
+      modeSwitch.hidden = false;
+      modeSwitch.setAttribute("aria-hidden", "false");
+    }
+  }
+  const tabsDisabled = formDisabled || isEditing;
+  if (tabManual) tabManual.disabled = tabsDisabled;
+  if (tabAi) tabAi.disabled = tabsDisabled;
 
   const openBtn = Util.qs("#btn-open-expense-modal");
   if (openBtn) {
@@ -1617,9 +1824,50 @@ Expense.modal.clearForm = function clearForm() {
   const titleEl = Util.qs("#expense-title");
   const amtEl = Util.qs("#expense-amount");
   const payerEl = Util.qs("#expense-payer");
+  const aiEl = Util.qs("#expense-ai-input");
   if (titleEl) titleEl.value = "";
   if (amtEl) amtEl.value = "";
   if (payerEl) payerEl.value = "";
+  if (aiEl) aiEl.value = "";
+};
+
+/** Modal body keeps scroll position across opens; reset so the AI block stays visible. */
+Expense.modal.resetBodyScroll = function resetBodyScroll() {
+  const body = Util.qs("#expense-modal .modal-body");
+  if (body) body.scrollTop = 0;
+};
+
+/**
+ * Add flow only: switch between manual and AI-assisted panels. No-op while editing an expense.
+ * @param {"manual"|"ai"} mode
+ */
+Expense.modal.setEntryMode = function setEntryMode(mode) {
+  if (editingExpenseId) return;
+  const form = Util.qs("#expense-form");
+  if (!form) return;
+
+  const next = mode === "ai" ? "ai" : "manual";
+  if (next === "ai" && expenseEntryMode !== "ai") {
+    const aiEl = Util.qs("#expense-ai-input");
+    if (aiEl) aiEl.value = "";
+  }
+  expenseEntryMode = next;
+  form.classList.remove("expense-form--entry-manual", "expense-form--entry-ai");
+  form.classList.add(next === "ai" ? "expense-form--entry-ai" : "expense-form--entry-manual");
+
+  const tabManual = Util.qs("#tab-expense-entry-manual");
+  const tabAi = Util.qs("#tab-expense-entry-ai");
+  const isManual = next === "manual";
+  if (tabManual) {
+    tabManual.setAttribute("aria-selected", isManual ? "true" : "false");
+    tabManual.tabIndex = isManual ? 0 : -1;
+  }
+  if (tabAi) {
+    tabAi.setAttribute("aria-selected", isManual ? "false" : "true");
+    tabAi.tabIndex = isManual ? -1 : 0;
+  }
+
+  syncExpenseFormUi();
 };
 
 Expense.modal.open = function open() {
@@ -1627,18 +1875,23 @@ Expense.modal.open = function open() {
   const openBtn = Util.qs("#btn-open-expense-modal");
   if (!modal || !openBtn || openBtn.disabled) return;
   editingExpenseId = null;
+  const form = Util.qs("#expense-form");
+  if (form) {
+    form.classList.remove("expense-form--editing");
+  }
   Expense.modal.setMode(false);
   Expense.modal.clearForm();
   modal.classList.add("is-open");
   modal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
   Expense.split.renderPayerAndParticipants();
-  syncExpenseFormUi();
+  Expense.modal.setEntryMode("ai");
   Expense.split.renderSplitFields();
   Util.setMessage(Util.qs("#expense-message"), "");
-  const titleInput = Util.qs("#expense-title");
-  if (titleInput && !titleInput.disabled) {
-    titleInput.focus();
+  Expense.modal.resetBodyScroll();
+  const aiInput = Util.qs("#expense-ai-input");
+  if (aiInput && !aiInput.disabled) {
+    aiInput.focus();
   }
 };
 
@@ -1649,6 +1902,13 @@ Expense.modal.openForEdit = function openForEdit(expenseId) {
   if (!state.started || state.members.length === 0) return;
 
   editingExpenseId = expenseId;
+  const form = Util.qs("#expense-form");
+  if (form) {
+    form.classList.add("expense-form--editing");
+    form.classList.remove("expense-form--entry-ai");
+    form.classList.add("expense-form--entry-manual");
+  }
+  expenseEntryMode = "manual";
   Expense.modal.setMode(true);
   modal.classList.add("is-open");
   modal.setAttribute("aria-hidden", "false");
@@ -1656,6 +1916,8 @@ Expense.modal.openForEdit = function openForEdit(expenseId) {
 
   Util.qs("#expense-title").value = e.title;
   Util.qs("#expense-amount").value = Util.formatMoney(e.amount);
+  const aiClear = Util.qs("#expense-ai-input");
+  if (aiClear) aiClear.value = "";
 
   Expense.split.renderPayerAndParticipants({
     selectParticipantIds: e.participantIds,
@@ -1666,6 +1928,7 @@ Expense.modal.openForEdit = function openForEdit(expenseId) {
   const prefill = e.splitMethod === "equal" ? null : { ...(e.splitDetails || {}) };
   Expense.split.renderSplitFields(prefill);
   Util.setMessage(Util.qs("#expense-message"), "");
+  Expense.modal.resetBodyScroll();
   const titleInput = Util.qs("#expense-title");
   if (titleInput && !titleInput.disabled) {
     titleInput.focus();
@@ -1675,14 +1938,17 @@ Expense.modal.openForEdit = function openForEdit(expenseId) {
 Expense.modal.close = function close() {
   const modal = Util.qs("#expense-modal");
   if (!modal) return;
+  Expense.modal.resetBodyScroll();
   modal.classList.remove("is-open");
   modal.setAttribute("aria-hidden", "true");
   document.body.style.overflow = "";
   editingExpenseId = null;
+  const form = Util.qs("#expense-form");
+  if (form) form.classList.remove("expense-form--editing");
   Expense.modal.setMode(false);
   Expense.modal.clearForm();
+  Expense.modal.setEntryMode("ai");
   Util.setMessage(Util.qs("#expense-message"), "");
-  syncExpenseFormUi();
 };
 
 function renderAll() {
@@ -1860,6 +2126,28 @@ document.addEventListener("DOMContentLoaded", () => {
     memberNameInput.addEventListener("keydown", Member.onNameKeydown);
   }
   Util.qs("#expense-form").addEventListener("submit", Expense.addOrUpdateFromForm);
+  const expenseAiParse = Util.qs("#btn-expense-ai-parse");
+  if (expenseAiParse) {
+    expenseAiParse.addEventListener("click", () => {
+      Expense.ai.onParseClick();
+    });
+  }
+  const tabEntryManual = Util.qs("#tab-expense-entry-manual");
+  const tabEntryAi = Util.qs("#tab-expense-entry-ai");
+  if (tabEntryManual) {
+    tabEntryManual.addEventListener("click", () => {
+      Expense.modal.setEntryMode("manual");
+      const el = Util.qs("#expense-title");
+      if (el && !el.disabled) el.focus();
+    });
+  }
+  if (tabEntryAi) {
+    tabEntryAi.addEventListener("click", () => {
+      Expense.modal.setEntryMode("ai");
+      const el = Util.qs("#expense-ai-input");
+      if (el && !el.disabled) el.focus();
+    });
+  }
   Util.qs("#split-method").addEventListener("change", () => {
     Expense.split.renderSplitFields();
   });

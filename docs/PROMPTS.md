@@ -28,6 +28,12 @@ Copy/adapt these when starting a new agent session. Keep scope small; cite `docs
 
 ---
 
+## AI-assisted expense entry
+
+> Improve the AI-assisted Add Expense flow. Keep the external worker boundary (`EXPENSE_AI_WORKER_URL`) and do not put secrets in frontend code. AI output should only prefill the manual form through `Expense.ai.applyWorkerPayloadToForm`; users must review and save through `Expense.addOrUpdateFromForm`. Preserve manual entry and edit flow.
+
+---
+
 ## localStorage persistence (enhance / fix)
 
 > The app already persists trip data to `localStorage` under `tripExpenseSplitterState` and the Simplify debt preference under `tripExpenseSplitterSimplifyDebt`. [Choose one:] (a) Fix a specific bug: [describe]. (b) Add migration/version field to the snapshot for future schema changes without breaking existing users. (c) Add a visible “last saved” or export JSON backup. Keep vanilla JS; extend `Trip.save` / `Trip.load` carefully with backward compatibility.

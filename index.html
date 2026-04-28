@@ -1,210 +1,257 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Trip Expense Splitter</title>
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <div class="screen-only">
-  <div class="page" id="app-page">
-    <!-- Visible only before trip is started: name + start -->
-    <div class="pre-start-only pre-start-bar" aria-label="Start a trip">
-      <span class="pre-start-label">Trip name</span>
-      <input type="text" id="trip-name-input" class="pre-start-input" placeholder="e.g. Goa weekend" autocomplete="off" />
-      <button type="button" id="btn-start-trip" class="btn btn-primary btn-compact">Start trip</button>
-      <p id="trip-message" class="message message--inline" role="alert"></p>
-    </div>
-    <p class="pre-start-only pre-start-hint">Your trip is saved in this browser until you clear it.</p>
-
-    <!-- After start: single-row top bar -->
-    <header class="app-toolbar post-start-only" aria-label="Trip overview">
-      <div class="toolbar-main">
-        <div class="toolbar-trip">
-          <span id="bar-trip-title" class="bar-trip-title" aria-live="polite"></span>
-        </div>
-        <p class="toolbar-meta" role="group" aria-label="Trip totals">
-          <span class="toolbar-meta__item"><span id="summary-total-expenses" class="toolbar-meta__num">0.00</span> total</span>
-          <span class="toolbar-meta__sep" aria-hidden="true">·</span>
-          <span class="toolbar-meta__item"><span id="summary-member-count" class="toolbar-meta__num">0</span> members</span>
-        </p>
-        <div class="toolbar-actions">
-          <button type="button" id="btn-reset-trip" class="btn btn-ghost btn-compact" title="Remove saved trip from this browser">
-            Clear data
-          </button>
-          <label class="toolbar-report-opt post-start-only">
-            <input type="checkbox" id="report-detailed" />
-            <span>Detailed report</span>
-          </label>
-          <button
-            type="button"
-            id="btn-export-pdf"
-            class="btn btn-ghost btn-print-export"
-            disabled
-            title="Print or save as PDF. In the print dialog, turn off Headers and footers for a clean file (no URL or file path)."
-          >
-            Export PDF
-          </button>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Trip Expense Splitter</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="app-page" class="page">
+      <div class="pre-start-only">
+        <div class="pre-start-bar">
+          <label class="pre-start-label" for="trip-name-input">Trip name</label>
+          <input
+            type="text"
+            id="trip-name-input"
+            class="pre-start-input"
+            placeholder="e.g. Goa long weekend"
+            autocomplete="off"
+          />
+          <button type="button" id="btn-start-trip" class="btn btn-primary">Start trip</button>
+          <p id="trip-message" class="message message--inline" role="alert"></p>
+          <p class="pre-start-hint">One trip at a time — add members after you start, then log expenses.</p>
         </div>
       </div>
-    </header>
 
-    <section class="members-section post-start-only" aria-label="Trip members">
-      <div class="members-section__row">
-        <span class="members-section__label">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-            <circle cx="9" cy="7" r="4"></circle>
-            <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
-            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-          </svg>
-          Members
-        </span>
-        <div id="member-chips" class="member-chips" aria-live="polite"></div>
-        <p id="member-list-empty" class="members-empty-hint">
-          <strong>No members yet</strong>
-          <span>Add people to start splitting</span>
-        </p>
-        <button type="button" id="btn-toggle-member-add" class="btn btn-outline-member" aria-expanded="false" aria-controls="member-add-inline">
-          + Add member
-        </button>
-      </div>
-      <div id="member-add-inline" class="member-add-reveal hidden">
-        <input type="text" id="member-name-input" class="member-add-input" placeholder="Name" autocomplete="off" disabled />
-        <button type="button" id="btn-add-member" class="btn btn-compact" disabled>Add</button>
-      </div>
-      <p id="member-message" class="message message--members" role="alert"></p>
-    </section>
-
-    <main class="main-grid">
-      <section class="panel panel-list panel-elevated panel-expenses-main" aria-labelledby="list-heading">
-        <div class="panel-head panel-head--tight panel-head--split panel-head--expenses">
-          <h2 id="list-heading" class="panel-title">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"></path>
-              <path d="M16 8h-6"></path>
-              <path d="M16 12h-6"></path>
-              <path d="M16 16h-6"></path>
-            </svg>
-            Expenses
-          </h2>
-          <button type="button" id="btn-open-expense-modal" class="btn btn-primary btn-add-expense btn-with-icon" disabled>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M5 12h14"></path>
-              <path d="M12 5v14"></path>
-            </svg>
-            Add expense
-          </button>
-        </div>
-        <div id="expense-list-container" class="panel-body panel-body--expenses"></div>
-      </section>
-
-      <aside class="sidebar" aria-label="Settlement">
-        <section
-          class="panel panel-settlement-unified panel-highlight panel-elevated"
-          aria-labelledby="settlement-heading"
-        >
-          <div class="panel-head panel-head--tight panel-head--split">
-            <h2 id="settlement-heading" class="panel-title">
-              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M7 7h11l-4-4"></path>
-                <path d="M17 17H6l4 4"></path>
-                <path d="M18 7 6 19"></path>
-              </svg>
-              Settlement
-            </h2>
-            <label class="sidebar-opt">
-              <input type="checkbox" id="simplify-debt" checked />
-              <span>
-                <span class="sidebar-opt__label">
-                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="m13 2-9 13h8l-1 7 9-13h-8Z"></path>
-                  </svg>
-                  Simplify debt
-                </span>
-                <small>Minimizes the number of payments</small>
-              </span>
-            </label>
+      <div class="post-start-only">
+        <header class="app-toolbar" aria-label="Trip toolbar">
+          <div class="toolbar-main">
+            <div class="toolbar-trip">
+              <span id="bar-trip-title" class="bar-trip-title"></span>
+            </div>
+            <p class="toolbar-meta">
+              <span
+                ><span id="summary-member-count" class="toolbar-meta__num">0</span> <span data-plural="members">members</span></span
+              >
+              <span class="toolbar-meta__sep" aria-hidden="true">·</span>
+              <span
+                >Total <span class="toolbar-meta__sep" aria-hidden="true">₹</span><span id="summary-total-expenses" class="toolbar-meta__num">0.00</span></span
+              >
+            </p>
+            <div class="toolbar-actions">
+              <label class="toolbar-report-opt">
+                <input type="checkbox" id="report-detailed" />
+                <span>Detailed PDF appendix</span>
+              </label>
+              <button type="button" id="btn-export-pdf" class="btn btn-print-export" disabled>Export PDF</button>
+              <button type="button" id="btn-reset-trip" class="btn btn-ghost">Clear data</button>
+              <button
+                type="button"
+                id="btn-toggle-member-add"
+                class="btn btn-outline-member btn-with-icon"
+                aria-expanded="false"
+                aria-controls="member-add-inline"
+              >
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12h14"></path>
+                  <path d="M12 5v14"></path>
+                </svg>
+                Add member
+              </button>
+            </div>
           </div>
-          <div class="settlement-unified">
-            <p id="hint-settle" class="settlement-unified__hint"></p>
-            <div id="balances-container" class="settlement-unified__balances" aria-label="Member settlement"></div>
+          <div id="member-add-inline" class="member-add-reveal hidden">
+            <input
+              type="text"
+              id="member-name-input"
+              class="member-add-input"
+              placeholder="Member name"
+              maxlength="80"
+              disabled
+              autocomplete="off"
+            />
+            <button type="button" id="btn-add-member" class="btn btn-primary" disabled>Add</button>
+            <p id="member-message" class="message message--members" role="alert"></p>
+          </div>
+        </header>
+
+        <section class="members-section" aria-label="Trip members">
+          <div class="members-section__row">
+            <span class="members-section__label">Members</span>
+            <div id="member-chips" class="member-chips" aria-live="polite"></div>
+            <p id="member-list-empty" class="members-empty-hint">
+              <strong>No members yet</strong>
+              <span>Add people to start splitting</span>
+            </p>
           </div>
         </section>
-      </aside>
-    </main>
-  </div>
 
-  <div id="expense-modal" class="modal" aria-hidden="true">
-    <div class="modal-backdrop" id="expense-modal-backdrop" tabindex="-1"></div>
-    <div
-      class="modal-dialog panel panel-elevated"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="modal-expense-heading"
-    >
-      <div class="modal-header">
-        <h2 id="modal-expense-heading" class="modal-title">Add expense</h2>
-        <button type="button" class="btn btn-icon" id="btn-close-expense-modal" aria-label="Close dialog">×</button>
-      </div>
-      <div class="modal-body">
-        <form id="expense-form" class="expense-form expense-form--modal">
-          <p class="hint">Paid by is who fronted the money. The split applies only to checked participants.</p>
-          <div class="form-stack">
-            <div class="field-row">
-              <label for="expense-title">Title</label>
-              <input type="text" id="expense-title" placeholder="Dinner, taxi…" disabled />
+        <main class="main-grid">
+          <section class="panel panel-list panel-elevated panel-expenses-main" aria-labelledby="list-heading">
+            <div class="panel-head panel-head--tight panel-head--split panel-head--expenses">
+              <h2 id="list-heading" class="panel-title">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"></path>
+                  <path d="M16 8h-6"></path>
+                  <path d="M16 12h-6"></path>
+                  <path d="M16 16h-6"></path>
+                </svg>
+                Expenses
+              </h2>
+              <button type="button" id="btn-open-expense-modal" class="btn btn-primary btn-add-expense btn-with-icon" disabled>
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12h14"></path>
+                  <path d="M12 5v14"></path>
+                </svg>
+                Add expense
+              </button>
             </div>
-            <div class="field-row">
-              <label for="expense-amount">Amount</label>
-              <input
-                type="text"
-                inputmode="decimal"
-                id="expense-amount"
-                placeholder="0.00"
-                disabled
-              />
-            </div>
-            <div class="field-row">
-              <label for="expense-payer">Paid by</label>
-              <select id="expense-payer" disabled>
-                <option value="">Select member</option>
-              </select>
-            </div>
-            <fieldset class="fieldset" id="fieldset-participants">
-              <legend>Participants</legend>
-              <p class="hint">Check who should share this expense. The payer does not have to be included.</p>
-              <div class="participant-select-all-row checkbox-row">
-                <input type="checkbox" id="participant-select-all" />
-                <label for="participant-select-all">Select all</label>
+            <div id="expense-list-container" class="panel-body panel-body--expenses"></div>
+          </section>
+
+          <aside class="sidebar" aria-label="Settlement">
+            <section
+              class="panel panel-settlement-unified panel-highlight panel-elevated"
+              aria-labelledby="settlement-heading"
+            >
+              <div class="panel-head panel-head--tight panel-head--split">
+                <h2 id="settlement-heading" class="panel-title">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M7 7h11l-4-4"></path>
+                    <path d="M17 17H6l4 4"></path>
+                    <path d="M18 7 6 19"></path>
+                  </svg>
+                  Settlement
+                </h2>
+                <label class="sidebar-opt">
+                  <input type="checkbox" id="simplify-debt" checked />
+                  <span>
+                    <span class="sidebar-opt__label">
+                      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="m13 2-9 13h8l-1 7 9-13h-8Z"></path>
+                      </svg>
+                      Simplify debt
+                    </span>
+                    <small>Minimizes the number of payments</small>
+                  </span>
+                </label>
               </div>
-              <div id="participant-checkboxes" class="checkbox-group checkbox-group--wrap checkbox-group--participants"></div>
-            </fieldset>
-            <div class="field-row">
-              <label for="split-method">Split method</label>
-              <select id="split-method" disabled>
-                <option value="equal">Equal</option>
-                <option value="shares">By shares</option>
-                <option value="percentage">By percentage</option>
-                <option value="custom">Custom amount</option>
-              </select>
-            </div>
-            <div id="split-fields" class="split-fields split-fields--modal"></div>
-          </div>
-          <div class="modal-actions">
-            <button type="button" class="btn" id="btn-cancel-expense-modal">Cancel</button>
-            <button type="submit" id="btn-add-expense" class="btn btn-primary" disabled>Save expense</button>
-          </div>
-          <p id="expense-message" class="message" role="alert"></p>
-        </form>
+              <div class="settlement-unified">
+                <p id="hint-settle" class="settlement-unified__hint"></p>
+                <div id="balances-container" class="settlement-unified__balances" aria-label="Member settlement"></div>
+              </div>
+            </section>
+          </aside>
+        </main>
       </div>
     </div>
-  </div>
-  </div>
 
-  <div id="print-report" class="print-only" aria-hidden="true"></div>
+    <div id="expense-modal" class="modal" aria-hidden="true">
+      <div class="modal-backdrop" id="expense-modal-backdrop" tabindex="-1"></div>
+      <div
+        class="modal-dialog panel panel-elevated"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-expense-heading"
+      >
+        <div class="modal-header">
+          <h2 id="modal-expense-heading" class="modal-title">Add expense</h2>
+          <button type="button" class="btn btn-icon" id="btn-close-expense-modal" aria-label="Close dialog">×</button>
+        </div>
+        <div class="modal-body">
+          <form id="expense-form" class="expense-form expense-form--modal expense-form--entry-ai">
+            <div id="expense-entry-mode-switch" class="expense-entry-mode-switch" role="tablist" aria-label="Expense entry mode">
+              <button
+                type="button"
+                id="tab-expense-entry-ai"
+                class="expense-entry-mode-switch__tab"
+                role="tab"
+                aria-selected="true"
+                aria-controls="expense-entry-ai"
+                tabindex="0"
+              >
+                AI-assisted
+              </button>
+              <button
+                type="button"
+                id="tab-expense-entry-manual"
+                class="expense-entry-mode-switch__tab"
+                role="tab"
+                aria-selected="false"
+                aria-controls="expense-entry-manual"
+                tabindex="-1"
+              >
+                Manual
+              </button>
+            </div>
 
-  <script src="script.js"></script>
-</body>
+            <div id="expense-entry-ai" class="expense-entry-panel expense-entry-panel--ai" role="tabpanel" aria-labelledby="tab-expense-entry-ai">
+              <p class="hint expense-entry-panel__hint">Describe the expense in plain language. We will fill the form for you to review.</p>
+              <div class="expense-ai-panel">
+                <label for="expense-ai-input">Description</label>
+                <textarea
+                  id="expense-ai-input"
+                  class="expense-ai-input"
+                  rows="3"
+                  placeholder="e.g. Dinner 2400 paid by Abishek for everyone"
+                  disabled
+                ></textarea>
+                <button type="button" id="btn-expense-ai-parse" class="btn expense-ai-panel__btn" disabled>Fill from description</button>
+              </div>
+            </div>
+
+            <div id="expense-entry-manual" class="expense-entry-panel expense-entry-panel--manual" role="tabpanel" aria-labelledby="tab-expense-entry-manual">
+              <p class="hint">Paid by is who fronted the money. The split applies only to checked participants.</p>
+              <div class="form-stack">
+                <div class="field-row">
+                  <label for="expense-title">Title</label>
+                  <input type="text" id="expense-title" placeholder="Dinner, taxi…" disabled />
+                </div>
+                <div class="field-row">
+                  <label for="expense-amount">Amount</label>
+                  <input type="text" inputmode="decimal" id="expense-amount" placeholder="0.00" disabled />
+                </div>
+                <div class="field-row">
+                  <label for="expense-payer">Paid by</label>
+                  <select id="expense-payer" disabled>
+                    <option value="">Select member</option>
+                  </select>
+                </div>
+                <fieldset class="fieldset" id="fieldset-participants">
+                  <legend>Participants</legend>
+                  <p class="hint">Check who should share this expense. The payer does not have to be included.</p>
+                  <div class="participant-select-all-row checkbox-row">
+                    <input type="checkbox" id="participant-select-all" />
+                    <label for="participant-select-all">Select all</label>
+                  </div>
+                  <div id="participant-checkboxes" class="checkbox-group checkbox-group--wrap checkbox-group--participants"></div>
+                </fieldset>
+                <div class="field-row">
+                  <label for="split-method">Split method</label>
+                  <select id="split-method" disabled>
+                    <option value="equal">Equal</option>
+                    <option value="shares">By shares</option>
+                    <option value="percentage">By percentage</option>
+                    <option value="custom">Custom amount</option>
+                  </select>
+                </div>
+                <div id="split-fields" class="split-fields split-fields--modal"></div>
+              </div>
+            </div>
+
+            <div class="modal-actions">
+              <button type="button" class="btn" id="btn-cancel-expense-modal">Cancel</button>
+              <button type="submit" id="btn-add-expense" class="btn btn-primary" disabled>Save expense</button>
+            </div>
+            <p id="expense-message" class="message" role="alert"></p>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div id="print-report" class="print-only" aria-hidden="true"></div>
+
+    <script src="script.js"></script>
+  </body>
 </html>

@@ -14,6 +14,10 @@ High-level product behavior; implementation details live in `docs/CONTEXT.md` an
 
 - Each expense can be **edited** or **deleted** after it’s added.
 - The payer is the member who paid upfront. The participant list controls who shares the cost, and the payer does not have to be included as a participant.
+- New expenses can be entered manually or through **AI-assisted fill**:
+  - AI-assisted fill accepts a plain-language description and sends it with current member names to the configured worker.
+  - The worker response only prefills the manual form; users must review and save before state changes.
+  - Editing an existing expense always uses the manual form.
 
 ## Settlement
 

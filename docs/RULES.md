@@ -11,12 +11,14 @@
 - **Do not break existing features:** start trip, add member, add expense (all split modes), balances, settlements, clear data, localStorage restore, print/export flow.
 - **Do not change split / balance / settlement math** unless fixing a documented bug; preserve the “last participant gets remainder” contract for equal/shares/percentage.
 - **Do not remove** `Trip.save()` calls from successful mutation paths without replacing persistence intentionally.
+- **Do not save AI-parsed expenses automatically:** AI fill must prefill the manual form for user review, then normal validation/save handles the expense.
 
 ## Code quality
 
 - **Avoid duplicating logic:** Reuse `Expense.split.computeOwedForExpense`, `Settlement.computeBalances`, `validateExpenseDraft`, `Util.round2`, etc. Do not copy-paste formulas into render-only code.
 - **Keep changes minimal and readable:** Small PR-sized diffs; one feature or fix per change set when possible.
 - **Respect existing conventions:** `Util.qs` / `Util.qsa` for DOM; string templates for larger HTML chunks; `Util.escapeHtml` for user-controlled text in `innerHTML`.
+- **Keep secrets out of frontend code:** AI parsing goes through `EXPENSE_AI_WORKER_URL`; do not add model API keys to `script.js`.
 
 ## UI / HTML
 
